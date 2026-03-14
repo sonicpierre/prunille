@@ -1,0 +1,193 @@
+"""
+Script de génération des fiches techniques Word à partir du JSON.
+Utilise docxtpl pour injecter les données dans les templates Word.
+
+Usage:
+    python src/generate_fiches.py
+"""
+
+import json
+import os
+import sys
+from datetime import date
+from docxtpl import DocxTemplate
+
+def get_resource_path(relative_path):
+    """ Récupère le chemin absolu vers la ressource, compatible dev et PyInstaller """
+    try:
+        # PyInstaller crée un dossier temporaire et stocke le chemin dans _MEIPASS
+        base_path = sys.executable
+    except Exception:
+        # Si on est en mode script normal (.py)
+        base_path = os.path.abspath(".")
+
+    base_path = os.path.split(base_path)[0]  # On prend le dossier du script
+
+    return os.path.join(base_path, relative_path)
+
+# ---------------------------------------------------------------------------
+# Chemins
+# ---------------------------------------------------------------------------
+
+#BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+INPUT_DIR = get_resource_path('input')
+TEMPLATE_DIR = os.path.join(INPUT_DIR, 'template')
+OUTPUT_DIR = os.path.join(INPUT_DIR, 'fiche_technique')
+JSON_PATH = os.path.join(INPUT_DIR, 'data_handmade.json')
+
+TEMPLATE_SACHET = os.path.join(TEMPLATE_DIR, 'Fic Tech Log Sachet Préformé.docx')
+TEMPLATE_FILM = os.path.join(TEMPLATE_DIR, 'Fic Tech Log Film.docx')
+
+
+# ---------------------------------------------------------------------------
+# Mapping JSON → Jinja2 variable names
+# ---------------------------------------------------------------------------
+
+FIELD_MAP = {
+    'Code article': 'code_article',
+    'Fournisseur': 'fournisseur',
+    'Grammage': 'grammage',
+    'Hauteur/Laize': 'hauteur_laize',
+    'Largeur/Coupe': 'largeur_coupe',
+    'Soufflet': 'soufflet',
+    'Masse sachet à vide (g)': 'masse_sachet',
+    'Zip': 'zip',
+    'Position zip VS haut du sachet': 'position_zip',
+    'Encoche ouverture': 'encoche_ouverture',
+    'Type soudure fond': 'type_soudure_fond',
+    'Angle arrondis': 'angle_arrondis',
+    'Trou Européen': 'trou_europeen',
+    'Epaisseur (µm)': 'etiquette_epaisseur',
+    'Procédé impression': 'procede',
+}
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def format_value(val):
+    """Formate une valeur pour l'affichage dans le template."""
+    if val is None:
+        return ''
+    if isinstance(val, float) and val == int(val):
+        return str(int(val))
+    return str(val)
+
+
+def build_nom_article(record: dict) -> str:
+    """Construit le nom de l'article : Client + Type sachet + Grammage + Produit."""
+    parts = [
+        format_value(record.get('Client')),
+        format_value(record.get('Type de sachet')),
+        format_value(record.get('Grammage')),
+        format_value(record.get('Produit')),
+    ]
+    return ' '.join(p for p in parts if p)
+
+
+def build_context(record: dict) -> dict:
+    """Transforme un enregistrement JSON en contexte Jinja2 pour le template."""
+    context = {}
+    for json_key, tpl_var in FIELD_MAP.items():
+        context[tpl_var] = format_value(record.get(json_key))
+
+    # Champ calculé
+    context['nom_article'] = build_nom_article(record)
+
+    # Décomposition de Structure en mat_1, mat_2, mat_3
+    structure = record.get('Structure') or ''
+    parts = [p.strip() for p in structure.split('/')] if structure else []
+    context['mat_1'] = parts[0] if len(parts) > 0 else ''
+    context['mat_2'] = parts[1] if len(parts) > 1 else ''
+    context['mat_3'] = parts[2] if len(parts) > 2 else ''
+
+    # Date du jour
+    context['date'] = date.today().strftime('%d/%m/%Y')
+
+    return context
+
+
+def get_template_info(record: dict) -> tuple[str, str] | None:
+    """
+    Retourne (chemin_template, nom_template) selon le type de sachet.
+    Retourne None si le record doit être ignoré.
+    """
+    type_sachet = record.get('Type de sachet')
+    code_article = record.get('Code article')
+    if type_sachet is None or code_article is None:
+        return None
+
+    if type_sachet.startswith('P'):
+        return TEMPLATE_SACHET, 'Sachet Préformé'
+    else:
+        return TEMPLATE_FILM, 'Film'
+
+
+def generate_fiche(record: dict, output_dir: str) -> str | None:
+    """
+    Génère un fichier Word pour un enregistrement.
+    Retourne le chemin du fichier créé, ou None si ignoré.
+    """
+    template_info = get_template_info(record)
+    if template_info is None:
+        return None
+
+    template_path, template_name = template_info
+    context = build_context(record)
+    code = record.get('Code article', 'UNKNOWN')
+
+    # Charger le template et rendre
+    tpl = DocxTemplate(template_path)
+    tpl.render(context)
+
+    # Nom du fichier de sortie
+    filename = f"{code}_Fic Tech Log {template_name}.docx"
+    output_path = os.path.join(output_dir, filename)
+    tpl.save(output_path)
+
+    return output_path
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main():
+    print(f"Lecture du JSON : {JSON_PATH}")
+
+    if not os.path.exists(JSON_PATH):
+        print(f"ERREUR : Fichier introuvable : {JSON_PATH}")
+        sys.exit(1)
+
+    with open(JSON_PATH, 'r', encoding='utf-8') as f:
+        records = json.load(f)
+
+    print(f"{len(records)} enregistrements chargés")
+
+    # Créer le dossier de sortie
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    generated = 0
+    skipped = 0
+
+    for record in records:
+        try:
+            result = generate_fiche(record, OUTPUT_DIR)
+            if result:
+                code = record.get('Code article', '?')
+                print(f"  ✓ {code} → {os.path.basename(result)}")
+                generated += 1
+            else:
+                skipped += 1
+        except PermissionError:
+            code = record.get('Code article', '?')
+            print(f"  ✗ {code} → ERREUR : fichier verrouillé (ouvert dans Word ?)")
+            skipped += 1
+
+    print(f"\nTerminé : {generated} fiches générées, {skipped} ignorées")
+    print(f"Dossier de sortie : {OUTPUT_DIR}")
+
+
+if __name__ == '__main__':
+    main()
