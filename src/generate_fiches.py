@@ -9,6 +9,7 @@ Usage:
 import json
 import os
 import sys
+import math
 from datetime import date
 from docxtpl import DocxTemplate, RichText
 
@@ -56,6 +57,7 @@ FIELD_MAP = {
     'Diamètre mandrin intérieur': 'interieur_mandrin',
     'sens déroulement': 'sens_deroulement',
     'Nb couleurs sans vernis': 'nb_couleurs_sans_vernis',
+    'Vernis': 'vernis',
     'Procédé impression': 'procede_impression',
     'Impression extérieur ou cello email': 'impression_exterieur_ou_cello_email',
     'Hauteur/Laize': 'hauteur_laize',
@@ -111,6 +113,15 @@ def build_pasteurisation(record: dict) -> str:
         return "oui (6 heures à 80 °C)"
     else:
         return "non"
+    
+def is_missing(val) -> bool:
+    return val is None or (isinstance(val, float) and math.isnan(val)) or val == ''
+
+def build_vernis(record: dict) -> str:
+    if not is_missing(record.get('Vernis')):
+        return str(int(record.get('Nb couleurs sans vernis')))+ " + Vernis " + record.get('Vernis')
+    else:
+        return record.get('Nb couleurs sans vernis')
 
 
 
@@ -126,6 +137,8 @@ def build_context(record: dict) -> dict:
     context['ph'] = build_ph(record)
 
     context['Pasteurisation'] = build_pasteurisation(record)
+
+    context['nb_couleurs_sans_vernis']= build_vernis(record)
 
     # Décomposition de Structure en mat_1, mat_2, mat_3
     structure = record.get('Structure') or ''
