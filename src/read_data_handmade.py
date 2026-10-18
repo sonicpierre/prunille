@@ -15,7 +15,13 @@ import sys
 
 
 def get_workbook_path() -> str:
-    """Retourne le chemin absolu vers data_handmade.xlsx."""
+    """
+    Retourne le chemin absolu vers le fichier Excel.
+    Utilise le premier argument de la ligne de commande s'il est fourni,
+    sinon input/data_handmade.xlsx par défaut.
+    """
+    if len(sys.argv) > 1:
+        return os.path.abspath(sys.argv[1])
     return os.path.abspath(
         os.path.join(os.path.dirname(__file__), '..', 'input', 'data_handmade.xlsx')
     )

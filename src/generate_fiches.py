@@ -3,7 +3,7 @@ Script de génération des fiches techniques Word à partir du JSON.
 Utilise docxtpl pour injecter les données dans les templates Word.
 
 Usage:
-    python src/generate_fiches.py
+    python src/generate_fiches.py [chemin_dossier_input]
 """
 
 import json
@@ -12,25 +12,29 @@ import sys
 from datetime import date
 from docxtpl import DocxTemplate
 
-def get_resource_path(relative_path):
-    """ Récupère le chemin absolu vers la ressource, compatible dev et PyInstaller """
-    try:
-        # PyInstaller crée un dossier temporaire et stocke le chemin dans _MEIPASS
-        base_path = sys.executable
-    except Exception:
-        # Si on est en mode script normal (.py)
-        base_path = os.path.abspath(".")
+def get_input_dir() -> str:
+    """
+    Retourne le chemin absolu vers le dossier input.
+    Utilise le premier argument de la ligne de commande s'il est fourni,
+    sinon ../input relatif au script (ou à l'exécutable PyInstaller).
+    """
+    if len(sys.argv) > 1:
+        return os.path.abspath(sys.argv[1])
 
-    base_path = os.path.split(base_path)[0]  # On prend le dossier du script
+    if getattr(sys, 'frozen', False):
+        # Exécutable PyInstaller : dossier de l'exe
+        base_path = os.path.dirname(sys.executable)
+    else:
+        # Script normal (.py) : dossier du script
+        base_path = os.path.dirname(os.path.abspath(__file__))
 
-    return os.path.join(base_path, relative_path)
+    return os.path.abspath(os.path.join(base_path, '..', 'input'))
 
 # ---------------------------------------------------------------------------
 # Chemins
 # ---------------------------------------------------------------------------
 
-#BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
-INPUT_DIR = get_resource_path('input')
+INPUT_DIR = get_input_dir()
 TEMPLATE_DIR = os.path.join(INPUT_DIR, 'template')
 OUTPUT_DIR = os.path.join(INPUT_DIR, 'fiche_technique')
 JSON_PATH = os.path.join(INPUT_DIR, 'data_handmade.json')

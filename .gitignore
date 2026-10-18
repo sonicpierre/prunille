@@ -1,3 +1,5 @@
 dist
 generate_fiches.spec
 build/
+input
+prunille_env
