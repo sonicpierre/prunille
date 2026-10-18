@@ -10,7 +10,9 @@ import json
 import os
 import sys
 from datetime import date
-from docxtpl import DocxTemplate
+from docxtpl import DocxTemplate, RichText
+
+COULEUR = "0B0BF4"
 
 def get_input_dir() -> str:
     """
@@ -50,7 +52,12 @@ TEMPLATE_FILM = os.path.join(TEMPLATE_DIR, 'Fic Tech Log Film.docx')
 FIELD_MAP = {
     'Code article': 'code_article',
     'Fournisseur': 'fournisseur',
-    'Grammage': 'grammage',
+    'Métrage bobine': 'metrage_bobine',
+    'Diamètre mandrin intérieur': 'interieur_mandrin',
+    'sens déroulement': 'sens_deroulement',
+    'Nb couleurs sans vernis': 'nb_couleurs_sans_vernis',
+    'Procédé impression': 'procede_impression',
+    'Impression extérieur ou cello email': 'impression_exterieur_ou_cello_email',
     'Hauteur/Laize': 'hauteur_laize',
     'Largeur/Coupe': 'largeur_coupe',
     'Soufflet': 'soufflet',
@@ -58,12 +65,14 @@ FIELD_MAP = {
     'Zip': 'zip',
     'Position zip VS haut du sachet': 'position_zip',
     'Encoche ouverture': 'encoche_ouverture',
+    'Position encoche VS haut du sachet': 'Position_encoche',
     'Type soudure fond': 'type_soudure_fond',
     'Angle arrondis': 'angle_arrondis',
     'Trou Européen': 'trou_europeen',
-    'Epaisseur (µm)': 'etiquette_epaisseur',
-    'Procédé impression': 'procede',
+    'Produit': 'Produit',
+    'Rapport surface/volume': 'Rapport_surface_volume',
 }
+
 
 
 # ---------------------------------------------------------------------------
@@ -89,6 +98,21 @@ def build_nom_article(record: dict) -> str:
     ]
     return ' '.join(p for p in parts if p)
 
+def build_ph(record: dict) -> str:
+
+    if record.get('Acide\nPH<4.5')=="Oui":
+        return "oui (pH≤4.5)"
+    else:
+        return "non (pH>4.5)"
+
+def build_pasteurisation(record: dict) -> str:
+
+    if record.get('Pasteurisation')=="Oui":
+        return "oui (6 heures à 80 °C)"
+    else:
+        return "non"
+
+
 
 def build_context(record: dict) -> dict:
     """Transforme un enregistrement JSON en contexte Jinja2 pour le template."""
@@ -98,6 +122,10 @@ def build_context(record: dict) -> dict:
 
     # Champ calculé
     context['nom_article'] = build_nom_article(record)
+
+    context['ph'] = build_ph(record)
+
+    context['Pasteurisation'] = build_pasteurisation(record)
 
     # Décomposition de Structure en mat_1, mat_2, mat_3
     structure = record.get('Structure') or ''
@@ -109,7 +137,8 @@ def build_context(record: dict) -> dict:
     # Date du jour
     context['date'] = date.today().strftime('%d/%m/%Y')
 
-    return context
+    # Tous les textes insérés en couleur et en gras (nécessite {{r var }} dans le template)
+    return {k: RichText(v, color=COULEUR, bold=True) for k, v in context.items()}
 
 
 def get_template_info(record: dict) -> tuple[str, str] | None:
@@ -143,7 +172,7 @@ def generate_fiche(record: dict, output_dir: str) -> str | None:
 
     # Charger le template et rendre
     tpl = DocxTemplate(template_path)
-    tpl.render(context)
+    tpl.render(context, autoescape=True)
 
     # Nom du fichier de sortie
     filename = f"{code}_Fic Tech Log {template_name}.docx"
