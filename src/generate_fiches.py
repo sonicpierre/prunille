@@ -39,7 +39,7 @@ TEMPLATE_DIR = os.path.join(INPUT_DIR, 'template')
 OUTPUT_DIR = os.path.join(INPUT_DIR, 'fiche_technique')
 JSON_PATH = os.path.join(INPUT_DIR, 'data_handmade.json')
 
-TEMPLATE_SACHET = os.path.join(TEMPLATE_DIR, 'Fic Tech Log Sachet Préformé.docx')
+TEMPLATE_SACHET = os.path.join(TEMPLATE_DIR, 'Fic Tech Log Sachet Preforme.docx')
 TEMPLATE_FILM = os.path.join(TEMPLATE_DIR, 'Fic Tech Log Film.docx')
 
 
