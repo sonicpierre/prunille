@@ -99,14 +99,14 @@ def build_nom_article(record: dict) -> str:
     return ' '.join(p for p in parts if p)
 
 def build_ph(record: dict) -> str:
-
+    """PH of the product"""
     if record.get('Acide\nPH<4.5')=="Oui":
         return "oui (pH≤4.5)"
     else:
         return "non (pH>4.5)"
 
 def build_pasteurisation(record: dict) -> str:
-
+    """Pasteurisation of the product"""
     if record.get('Pasteurisation')=="Oui":
         return "oui (6 heures à 80 °C)"
     else:
