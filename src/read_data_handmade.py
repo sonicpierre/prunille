@@ -32,7 +32,13 @@ HEADER_ROW_INDEX = 3  # Ligne 4 en index 0-based = 3
 
 
 def get_output_path() -> str:
-    """Retourne le chemin absolu vers le fichier JSON de sortie."""
+    """
+    Retourne le chemin absolu vers le fichier JSON de sortie.
+    Si un chemin Excel est fourni en argument, le JSON est écrit dans le même dossier,
+    sinon dans input/output_inge_pack/ par défaut.
+    """
+    if len(sys.argv) > 1:
+        return os.path.join(os.path.dirname(get_workbook_path()), 'data_handmade.json')
     return os.path.abspath(
         os.path.join(os.path.dirname(__file__), '..', 'input', 'output_inge_pack', 'data_handmade.json')
     )
